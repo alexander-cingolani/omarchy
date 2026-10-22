@@ -4,7 +4,20 @@
 # omarchy:args=[toggle|on|off|--status]
 # omarchy:examples=omarchy toggle status-phrases | omarchy toggle status-phrases off | omarchy toggle status-phrases --status
 
-widgets=(omarchy.power omarchy.bluetooth omarchy.network)
+sources=(omarchy.power omarchy.bluetooth omarchy.network)
+
+# A clone of a panel takes the built-in's place on the bar under its own id, so
+# the options go to the built-in and to every clone of it.
+widgets=()
+while IFS= read -r id; do
+  widgets+=("$id")
+done < <(
+  omarchy-shell shell listPlugins 2>/dev/null |
+    jq -r --argjson sources "$(printf '%s\n' "${sources[@]}" | jq -R . | jq -sc .)" \
+      '$sources[], (.[] | select(.clonedFrom as $c | $sources | index($c)) | .id)' 2>/dev/null ||
+    printf '%s\n' "${sources[@]}"
+)
+(( ${#widgets[@]} )) || widgets=("${sources[@]}")
 
 # The phrases are on unless a widget on the bar has them switched off.
 phrases_on() {
